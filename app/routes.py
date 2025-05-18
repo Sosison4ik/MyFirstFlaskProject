@@ -1,16 +1,24 @@
 from flask import render_template, flash, redirect, url_for
+from flask import request
+from urllib.parse import urlsplit
 from app import app 
+
+
 from flask_login import current_user, login_user
 from flask_login import logout_user
+from flask_login import login_required
+
+
 import sqlalchemy as sa
 from app import db
 from app.models import User
 from app.forms import LoginForm
 
+
 @app.route('/')
 @app.route('/index')
+@login_required
 def index():
-    user = {'username':'Vlad'}
     posts = [
         {
             'author' : {'username' : 'John'},
@@ -21,7 +29,7 @@ def index():
             'body' : 'The Aengers movie is so cool!'
         }
     ]
-    return render_template('index.html', title = 'Home', user=user, posts=posts)
+    return render_template('index.html', title = 'Home', posts=posts)
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -31,11 +39,14 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         user = db.session.scalar(
-            sa.select(User).where(user.username == form.username.data))
+            sa.select(User).where(User.username == form.username.data))
         if user is None or not user.check_password(form.password.data):
             flash('Invalid username or password')
             return redirect(url_for('login'))
-        login_user(user, remeber=form.remember_me.data)
+        login_user(user, remember=form.remember_me.data)
+        next_page = request.args.get('next')
+        if not next_page or urlsplit(next_page).netloc != '':
+            next_page = url_for('index')
         return redirect(url_for('index'))
     return render_template('login.html', title='Sign In', form=form)
 
